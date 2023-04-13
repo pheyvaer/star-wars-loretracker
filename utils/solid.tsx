@@ -18,12 +18,29 @@ export const rawDataToRDF = (rawData: any) => {
 }
 
 export const RDFtoRawData = async (doc: object) => {
+  return {
+    movies: await getDataFromJSONLD(doc, 'Movie'),
+    books: await getDataFromJSONLD(doc, 'Book'),
+    comics: await getDataFromJSONLD(doc, 'ComicStory'),
+    series: await getDataFromJSONLD(doc, 'TVSeries'),
+    games: await getDataFromJSONLD(doc, 'VideoGame'),
+    excluded: {
+      "movies": [],
+      "games": [],
+      "books": [],
+      "comics": [],
+      "series": []
+    }
+  }
+}
+
+async function getDataFromJSONLD(doc: object, type: string) {
   const framed = await jsonld.frame(doc, {"@context": {
       "@vocab": "http://schema.org/",
       "status": {
         "@reverse": "object"
       }
-    },"@type": "Movie"}
+    },"@type": type}
   );
 
   let data = framed['@graph'];
@@ -36,22 +53,8 @@ export const RDFtoRawData = async (doc: object) => {
     }
   }
 
-
-  return {
-    // @ts-ignore
-    movies: data.map(a => a.identifier),
-    books: [],
-    comics: [],
-    series: [],
-    games: [],
-    excluded: {
-      "movies": [],
-      "games": [],
-      "books": [],
-      "comics": [],
-      "series": []
-    }
-  }
+  // @ts-ignore
+  return data.map(a => a.identifier);
 }
 
 function getJSONLDObjects(arr: [], type: string) {
