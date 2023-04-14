@@ -17,6 +17,8 @@ import HeadContent from "../utils/HeadContent";
 import Card from "../comps/card/Card";
 import LoadingBackdrop from "../comps/MUI/LoadingBackdrop";
 import TimelineWarning from "../comps/TimelineWarning";
+import {rawDataToRDF, RDFtoRawData} from "../utils/solid";
+import jsonld from "jsonld";
 
 export default function Home() {
   const [defaultFetchedData, setDefaultFetchedData] = useState<EntryData[]>([]);
@@ -97,6 +99,31 @@ export default function Home() {
     }
   }
 
+  async function getDataFromRDFResource() {
+    const solidResource = localStorage.getItem('solidResource')
+
+    if (!solidResource) {
+      return;
+    }
+
+    const response = await fetch(solidResource, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/ld+json'
+      }
+    });
+
+    if (response.status === 200) {
+      const doc = await response.json();
+      console.log(doc);
+
+      const rawData = await RDFtoRawData(doc);
+      console.log(rawData);
+      setEntriesMarkedAsFinished(rawData);
+      setEntriesMarkedAsExcluded(rawData.excluded);
+    }
+  }
+
   useEffect(() => {
     console.log("Hello there.");
 
@@ -104,7 +131,10 @@ export default function Home() {
     fetchData("movies");
     fetchBookDescriptions();
 
+    getDataFromRDFResource();
+
     if ("loretracker" in localStorage) {
+      console.log("There is stuff in local storage.");
       let storedData = JSON.parse(localStorage.getItem("loretracker") ?? "");
       if (!storedData.excluded) storedData.excluded = entriesMarkedAsExcluded;
       if (storedData.excluded) setEntriesMarkedAsExcluded(storedData.excluded);
@@ -118,6 +148,7 @@ export default function Home() {
         setUser(session?.user ?? null);
       }
       if (event == "SIGNED_OUT") {
+        console.log('SUPABASE: SIGNED_OUT');
         setEntriesMarkedAsExcluded({
           movies: [],
           games: [],
@@ -158,7 +189,6 @@ export default function Home() {
 
   useEffect(() => {
     localStorage.setItem("loretracker", JSON.stringify(entriesMarkedAsFinished));
-
     if (user) upsertUserDataIntoDatabase();
   }, [entriesMarkedAsFinished]);
 
@@ -266,7 +296,7 @@ export default function Home() {
     fetchData(target);
   }
 
-  function getDescription(book: string): string {    
+  function getDescription(book: string): string {
     let bookDescription = _.filter(bookDescriptions, ['youtiniTitle', book.replace(/—|–|−|-/, '-')]);
 
     if (!bookDescription.length || currentlyOpenedModule !== 'books') return '';
@@ -365,6 +395,9 @@ export default function Home() {
     let container = document.getElementById(`${currentTitle}-card`);
 
     const isEntryFinished = entriesMarkedAsFinished[currentlyOpenedModule].includes(currentTitle);
+    console.log(isEntryFinished);
+
+    let toRDF;
 
     if (isEntryFinished) {
       container?.classList.remove("cardFinished");
@@ -384,6 +417,11 @@ export default function Home() {
           [currentlyOpenedModule]: arrWithoutEntry,
         })
       );
+
+      toRDF = {
+        ...entriesMarkedAsFinished,
+        [currentlyOpenedModule]: arrWithoutEntry,
+      };
     }
 
     if (!isEntryFinished) {
@@ -402,6 +440,28 @@ export default function Home() {
           [currentlyOpenedModule]: [...entriesMarkedAsFinished[currentlyOpenedModule], currentTitle],
         })
       );
+
+      toRDF = {
+        ...entriesMarkedAsFinished,
+        [currentlyOpenedModule]: [...entriesMarkedAsFinished[currentlyOpenedModule], currentTitle],
+      };
+    }
+
+    const solidResource = localStorage.getItem('solidResource')
+
+    if (solidResource) {
+      console.log('PUT data in Solid pod');
+      console.log(toRDF);
+      const rdf = rawDataToRDF(toRDF);
+      console.log(rdf);
+
+      fetch(solidResource, {
+        method: 'PUT',
+        body: JSON.stringify(rdf),
+        headers: {
+          'content-type': 'application/ld+json'
+        }
+      });
     }
   }
 
@@ -639,7 +699,7 @@ export default function Home() {
     resetFilters,
     filterEntries,
     fetchedTitles,
-    searchEntries,    
+    searchEntries,
     filterboxAnchorEl,
     removeFromExcluded,
     filteredCategories,
@@ -648,7 +708,7 @@ export default function Home() {
     setFilterboxAnchorEl,
     filteredCreatorsName,
     canonicityFilterValue,
-    entriesMarkedAsExcluded,    
+    entriesMarkedAsExcluded,
   };
 
   const cardprops = {
@@ -681,8 +741,8 @@ export default function Home() {
           <div id={styles.moduleContainer}>
             {_.slice(fetchedData, 0, paginationEndElement).map((e1, i1) => {
               let currentTitle = e1.title.replace(/\s+/g, "-");
-              if (hideExcludedEntries && entriesMarkedAsExcluded[currentlyOpenedModule].includes(currentTitle)) return;              
-              
+              if (hideExcludedEntries && entriesMarkedAsExcluded[currentlyOpenedModule].includes(currentTitle)) return;
+
               return <Card {...cardprops} e1={e1} currentTitle={currentTitle} key={"1" + i1} />;
             })}
             <Waypoint onEnter={infiniteScroll} />

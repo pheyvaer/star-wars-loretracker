@@ -7,6 +7,7 @@ import FacebookIcon from '@mui/icons-material/Facebook';
 import TwitterIcon from '@mui/icons-material/Twitter';
 import GoogleIcon from '@mui/icons-material/Google';
 import EmailIcon from '@mui/icons-material/Email';
+import CloudIcon from '@mui/icons-material/Cloud';
 import LogoutIcon from '@mui/icons-material/Logout';
 import Snackbar from '@mui/material/Snackbar';
 import IconButton from '@mui/material/IconButton';
@@ -17,6 +18,7 @@ import { Provider } from '@supabase/supabase-js';
 
 export default function Login({ handleClose }: LoginProps) {
   const [email, setEmail] = useState('');
+  const [solidResource, setSolidResource] = useState('');
   const [openSnackbar, setOpenSnackbar] = useState(false);
 
   const handleCloseSnackbar = (
@@ -58,11 +60,22 @@ export default function Login({ handleClose }: LoginProps) {
     sendLoginMail();
   }
 
+  function enableSolidResourceViaEvent(
+    event: React.FormEvent<HTMLInputElement> | React.FormEvent<HTMLFormElement>
+  ) {
+    event.preventDefault();
+    localStorage.setItem('solidResource', solidResource);
+  }
+
   async function sendLoginMail() {
     const { user, error } = await supabase.auth.signIn({
       email: email,
     });
     setOpenSnackbar(true);
+  }
+
+  function enableSolidResource() {
+    localStorage.setItem('solidResource', solidResource);
   }
 
   async function signout() {
@@ -151,6 +164,22 @@ export default function Login({ handleClose }: LoginProps) {
                   message='We sent you an email with your login link.'
                   action={action}
                 />
+
+                <input
+                  type='solid-resource'
+                  placeholder='Solid resource'
+                  onChange={(e) => setSolidResource(e.target.value)}
+                  onSubmit={(e) => enableSolidResourceViaEvent(e)}
+                  style={{
+                    backgroundColor: 'black',
+                    color: 'white',
+                    outline: 'none',
+                    border: '1px dotted white',
+                  }}
+                />
+                <Button startIcon={<CloudIcon />} onClick={enableSolidResource}>
+                  Set Solid resource
+                </Button>
               </form>
             </>
           )}
